@@ -14,7 +14,8 @@
 /* 1. Копія рядка у верхньому регістрі. */
 static char *dup_upper(const char *s)
 {
-    char *r = malloc(strlen(s));
+    /* Виправлення: потрібен додатковий байт для завершального '\0'. */
+    char *r = malloc(strlen(s) + 1);
     if (r == NULL)
         return NULL;
     strcpy(r, s);
@@ -46,8 +47,15 @@ static void scenario2(void)
     int sum = 0;
     for (struct node *p = head; p; p = p->next)
         sum += p->value;
-    for (struct node *p = head; p; p = p->next)
+
+    /* Виправлення: зберігаємо next до free, щоб не читати звільнену пам'ять. */
+    struct node *p = head;
+    while (p) {
+        struct node *next = p->next;
         free(p);
+        p = next;
+    }
+
     printf("sum = %d\n", sum);
 }
 
@@ -57,7 +65,10 @@ static void scenario2(void)
 static void scenario3(void)
 {
     const char *words[] = { "a", "system", "software", "is", "wordfreq" };
-    int hist[MAXLEN] = { 0 };
+
+    /* Виправлення: потрібен елемент hist[MAXLEN] для слів довжини MAXLEN. */
+    int hist[MAXLEN + 1] = { 0 };
+
     int canary = 12345;
     for (size_t i = 0; i < sizeof words / sizeof words[0]; i++) {
         size_t len = strlen(words[i]);
@@ -65,7 +76,7 @@ static void scenario3(void)
             len = MAXLEN;
         hist[len]++;
     }
-    for (int i = 1; i < MAXLEN; i++)
+    for (int i = 1; i <= MAXLEN; i++)
         printf("%d:%d ", i, hist[i]);
     printf("\ncanary = %d\n", canary);
 }
@@ -74,7 +85,10 @@ static void scenario3(void)
 static void scenario4(int argc)
 {
     const char *words[] = { "kernel", "module", "driver" };
-    int total;
+
+    /* Виправлення: total треба ініціалізувати перед накопиченням суми. */
+    int total = 0;
+
     for (int i = 0; i < 3; i++)
         total += (int)strlen(words[i]);
     if (argc > 100)             /* argc тут лише для того, щоб компілятор
@@ -92,10 +106,13 @@ static void scenario4(int argc)
 static void scenario5(void)
 {
     const char *s = "the quick brown fox jumps over the lazy dog";
-    int h = 0;
+
+    /* Виправлення: unsigned-арифметика не має UB при переповненні. */
+    unsigned h = 0;
+
     for (const char *p = s; *p; p++)
         h = h * 31 + *p;
-    unsigned idx = (unsigned)h % NBUCKETS;
+    unsigned idx = h % NBUCKETS;
     printf("bucket = %u\n", idx);
 }
 
@@ -113,6 +130,9 @@ static void scenario6(void)
     for (int i = 0; i < 3; i++) {
         char *line = make_line("kernel", i);
         printf("%s\n", line);
+
+        /* Виправлення: звільняємо пам'ять, виділену в make_line. */
+        free(line);
     }
 }
 
