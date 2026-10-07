@@ -5,18 +5,21 @@
  * Зберіть чотири варіанти (gcc і clang, -O0 і -O2) і порівняйте вивід.
  */
 #include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 
 /* Додає a і b. Повертає -1, якщо сума не вміщується в int. */
 static int add_checked(int a, int b, int *out)
 {
-    int s = a + b;
-    if (b > 0 && s < a)         /* «якщо додали додатне, а стало менше» */
+    long long s = (long long)a + (long long)b;
+
+    if (s > INT_MAX || s < INT_MIN) {
         return -1;
-    *out = s;
+    }
+
+    *out = (int)s;
     return 0;
 }
-
 int main(int argc, char *argv[])
 {
     if (argc != 3) {
