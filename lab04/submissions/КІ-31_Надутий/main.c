@@ -63,7 +63,7 @@ static int parse_count(const char *s, int *out)
 
     if (value < 1 || value > INT_MAX) {
         return -1;
-    }
+   }
 
     *out = (int)value;
     return 0;
@@ -82,9 +82,8 @@ static int count_fd(int fd, struct scanner *sc, struct table *t)
     for (;;) {
         ssize_t n = read(fd, buf, sizeof(buf));
 
-        if (n > 0) {            
-
-if (scanner_feed(sc, buf, (size_t)n, t) != 0) {
+        if (n > 0) {
+            if (scanner_feed(sc, buf, (size_t)n, t) != 0) {
                 return ENOMEM;
             }
         } else if (n == 0) {
@@ -133,6 +132,8 @@ static int count_file(const char *name, struct table *t)
         }
     }
 
+    scanner_free(&sc);
+
     if (name != NULL) {
         if (close(fd) == -1 && err == 0) {
             err = errno;
@@ -140,13 +141,12 @@ static int count_file(const char *name, struct table *t)
     }
 
     if (err != 0) {
-        report_error(name == NULL ? "<stdin>" : name, err);
+        report_error(name == NULL ? "stdin" : name, err);
         return -1;
     }
 
     return 0;
-}
-
+} 
 int main(int argc, char *argv[])
 {
     int n = 10;
