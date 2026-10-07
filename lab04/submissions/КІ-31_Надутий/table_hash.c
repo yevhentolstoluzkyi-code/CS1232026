@@ -34,39 +34,121 @@ struct table {
 
 static uint64_t fnv1a(const char *p, size_t len)
 {
-    /* TODO: h = FNV_OFFSET; для кожного байта: h ^= байт; h *= FNV_PRIME. */
-    (void)p;
-    (void)len;
-    return 0;
-}
+    uint64_t h = FNV_OFFSET;
+    size_t i = 0;
 
+    while (i < len) {
+        h ^= (unsigned char)p[i];
+        h *= FNV_PRIME;
+        i++;
+    }
+
+    return h;
+}
 struct table *table_new(void)
 {
-    /* TODO: таблиця з 1024 порожніми кошиками. */
-    return NULL;
-}
+    struct table *t = malloc(sizeof(*t));
 
+    if (t == NULL) {
+        return NULL;
+    }
+
+    t->nbuckets = 1024;
+    t->n = 0;
+
+    t->buckets = calloc(t->nbuckets, sizeof(*t->buckets));
+
+    if (t->buckets == NULL) {
+        free(t);
+        return NULL;
+    }
+
+    return t;
+}
 /* Подвоює кількість кошиків. 0 або -1. */
 static int grow(struct table *t)
 {
-    (void)t;
-    /* TODO */
+    size_t new_nbuckets = t->nbuckets * 2;
+    struct node **new_buckets =
+        calloc(new_nbuckets, sizeof(*new_buckets));
+
+    if (new_buckets == NULL) {
+        return -1;
+    }
+
+    size_t i = 0;
+
+    while (i < t->nbuckets) {
+        struct node *node = t->buckets[i];
+
+        while (node != NULL) {
+            struct node *next = node->next;
+            size_t index = node->hash & (new_nbuckets - 1);
+
+            node->next = new_buckets[index];
+            new_buckets[index] = node;
+
+            node = next;
+        }
+
+        i++;
+    }
+
+    free(t->buckets);
+    t->buckets = new_buckets;
+    t->nbuckets = new_nbuckets;
+
     return 0;
 }
-
 int table_add(struct table *t, const char *word, size_t len)
 {
-    /* TODO: знайти в кошику запис з тим самим hash, len і вмістом —
-     * збільшити count; інакше створити новий вузол на початку ланцюжка,
-     * а якщо слів стало більше, ніж кошиків, — grow(). */
-    (void)fnv1a;
-    (void)grow;
-    (void)t;
-    (void)word;
-    (void)len;
-    return -1;
-}
+    uint64_t hash = fnv1a(word, len);
+    size_t index = hash & (t->nbuckets - 1);
+    struct node *node = t->buckets[index];
 
+    while (node != NULL) {
+        if (node->hash == hash &&
+            node->len == len &&
+            memcmp(node->e.word, word, len) == 0) {
+            node->e.count++;
+            return 0;
+        }
+
+        node = node->next;
+    }
+
+    struct node *new_node = malloc(sizeof(*new_node));
+
+    if (new_node == NULL) {
+        return -1;
+    }
+
+    new_node->e.word = malloc(len + 1);
+
+    if (new_node->e.word == NULL) {
+        free(new_node);
+        return -1;
+    }
+
+    memcpy(new_node->e.word, word, len);
+    new_node->e.word[len] = '\0';
+
+    new_node->e.count = 1;
+    new_node->hash = hash;
+    new_node->len = len;
+
+    new_node->next = t->buckets[index];
+    t->buckets[index] = new_node;
+    t->n++;
+
+    if (t->n > t->nbuckets) {
+        if (grow(t) != 0) {
+            return -1;
+        }
+    }
+
+    return 0;
+}
 size_t table_size(const struct table *t)
 {
     return t->n;
@@ -74,13 +156,53 @@ size_t table_size(const struct table *t)
 
 struct entry **table_entries(const struct table *t)
 {
-    /* TODO: масив із t->n вказівників &node->e. */
-    (void)t;
-    return NULL;
-}
+    struct entry **entries = malloc(t->n * sizeof(*entries));
 
+    if (entries == NULL && t->n != 0) {
+        return NULL;
+    }
+
+    size_t k = 0;
+    size_t i = 0;
+
+    while (i < t->nbuckets) {
+        struct node *node = t->buckets[i];
+
+        while (node != NULL) {
+            entries[k] = &node->e;
+            k++;
+            node = node->next;
+        }
+
+        i++;
+    }
+
+    return entries;
+}
 void table_free(struct table *t)
 {
-    /* TODO */
-    (void)t;
+    if (t == NULL) {
+        return;
+    }
+
+    size_t i = 0;
+
+    while (i < t->nbuckets) {
+        struct node *node = t->buckets[i];
+
+        while (node != NULL) {
+            struct node *next = node->next;
+
+            free(node->e.word);
+            free(node);
+
+            node = next;
+        }
+
+        i++;
+    }
+
+    free(t->buckets);
+    free(t);
 }
+
