@@ -35,11 +35,15 @@ struct kv {
 };
 
 /* Історія запитів GET: однозв'язний список, новіші — на початку. */
-struct hnode {
+/*struct hnode {
     char *key;
     struct hnode *next;
 };
-static struct hnode *history;
+static struct hnode *history;*/
+
+static char *history[HIST_SHOW];
+static size_t hist_next = 0;
+static size_t hist_count = 0;
 
 static void *xmalloc(size_t n)
 {
@@ -85,7 +89,9 @@ static void kv_set(struct kv *t, const char *key, const char *val)
 {
     struct entry **pp = kv_slot(t, key);
     if (*pp) {
-        (*pp)->val = xstrdup(val);
+        char *new_val = xstrdup(val);
+        free((*pp)->val);
+        (*pp)->val = new_val;
         return;
     }
     struct entry *e = xmalloc(sizeof *e);
@@ -108,6 +114,8 @@ static int kv_del(struct kv *t, const char *key)
     struct entry *e = *pp;
     if (!e) return 0;
     *pp = e->next;
+    free(e->key);
+    free(e->val);
     free(e);
     t->count--;
     return 1;
@@ -116,6 +124,19 @@ static int kv_del(struct kv *t, const char *key)
 /* TODO 4. Звільнити всю пам'ять таблиці. */
 static void kv_destroy(struct kv *t)
 {
+    for (size_t i = 0; i < t->nbucket; i++) {
+    struct entry *e = t->bucket[i];
+
+    while (e != NULL) {
+        struct entry *next = e->next;
+
+        free(e->key);
+        free(e->val);
+        free(e);
+
+        e = next;
+    }
+}
     free(t->bucket);
     t->bucket = NULL;
     t->nbucket = t->count = 0;
@@ -128,18 +149,33 @@ static void kv_destroy(struct kv *t)
  * рядків і не забудьте звільнити його наприкінці роботи. */
 static void history_add(const char *key)
 {
-    struct hnode *h = xmalloc(sizeof *h);
+    /*struct hnode *h = xmalloc(sizeof *h);
     h->key = xstrdup(key);
     h->next = history;
-    history = h;
+    history = h;*/
+
+    char *copy = xstrdup(key);
+
+    free(history[hist_next]);
+
+    history[hist_next] = copy;
+    hist_next = (hist_next + 1) % HIST_SHOW;
+
+    if (hist_count < HIST_SHOW)
+        hist_count++;
 }
 
 static void history_print(void)
 {
     fputs("history", stdout);
-    int n = 0;
+    /*int n = 0;
     for (struct hnode *h = history; h && n < HIST_SHOW; h = h->next, n++)
-        printf(" %s", h->key);
+        printf(" %s", h->key);*/
+
+    for (size_t i = 0; i < hist_count; i++) {
+        size_t idx = (hist_next + HIST_SHOW - 1 - i) % HIST_SHOW;
+        printf(" %s", history[idx]);
+    }
     putchar('\n');
 }
 
@@ -153,9 +189,16 @@ static char *read_line(FILE *f, char **buf, size_t *cap)
     int c;
     while ((c = getc(f)) != EOF && c != '\n') {
         if (len + 1 >= *cap) {
-            *cap = *cap ? 2 * *cap : 64;
+            /**cap = *cap ? 2 * *cap : 64;
             *buf = realloc(*buf, *cap);
-            if (!*buf) return NULL;            /* пам'яті немає — далі не читаємо */
+            if (!*buf) return NULL;*/            /* пам'яті немає — далі не читаємо */
+
+            size_t new_cap = *cap ? 2 * *cap : 64;
+            char *tmp = realloc(*buf, new_cap);
+            if (!tmp) return NULL;
+
+            *buf = tmp;
+            *cap = new_cap;
         }
         (*buf)[len++] = (char)c;
     }
@@ -178,11 +221,14 @@ static void execute(struct kv *t, char *line)
     if (strcmp(cmd, "SET") == 0) {
         char *k = strtok(NULL, " ");
         if (!k) { puts("error: usage"); return; }
-        char *key = xstrdup(k);
-        char *val = strtok(NULL, "");          /* решта рядка */
-        if (!val) { puts("error: usage"); return; }
+        /*char *key = xstrdup(k);
+        char *val = strtok(NULL, "");*/          /* решта рядка */
+        /*if (!val) { puts("error: usage"); return; }
         kv_set(t, key, val);
-        free(key);
+        free(key);*/
+        char *val = strtok(NULL, "");
+        if (!val) { puts("error: usage"); return; }
+        kv_set(t, k, val);
         puts("OK");
     } else if (strcmp(cmd, "GET") == 0) {
         char *key = strtok(NULL, " ");
@@ -204,6 +250,17 @@ static void execute(struct kv *t, char *line)
     }
 }
 
+static void history_destroy(void)
+{
+    for (size_t i = 0; i < HIST_SHOW; i++) {
+        free(history[i]);
+        history[i] = NULL;
+    }
+
+    hist_next = 0;
+    hist_count = 0;
+}
+
 int main(void)
 {
     struct kv t;
@@ -214,5 +271,6 @@ int main(void)
         execute(&t, line);
     free(buf);
     kv_destroy(&t);
+    history_destroy();
     return 0;
 }
