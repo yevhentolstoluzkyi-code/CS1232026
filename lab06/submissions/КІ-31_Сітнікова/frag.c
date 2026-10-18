@@ -45,6 +45,14 @@ static long read_rss_kb(void)
 static struct snap take_snap(void)
 {
     struct snap s = { 0, 0, 0, 0 };
+
+    struct mallinfo2 mi = mallinfo2();
+
+    s.live_kb = mi.uordblks / 1024;
+    s.heap_kb = mi.arena / 1024;
+    s.free_kb = mi.fordblks / 1024;
+    s.rss_kb = read_rss_kb();
+
     return s;
 }
 
