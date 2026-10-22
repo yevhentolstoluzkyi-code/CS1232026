@@ -55,6 +55,14 @@ kvcache-O0
 w20k.txt
 w200k.txt
 massif.out*
+# ЛР 7
+idinfo
+permcheck
+pwcheck
+notes
+notes.c.mine
+mine.txt
+h.txt
 
 # редактори та системні файли
 .vscode/

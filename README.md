@@ -43,6 +43,10 @@ lab06/
 ├── README.md                — завдання роботи
 ├── starter/                 — heapprobe, frag, stackprobe, kvcache і Makefile: скопіюйте все до свого каталогу
 └── submissions/
+lab07/
+├── README.md                — завдання роботи
+├── starter/                 — idinfo, permcheck, pwcheck, notes і Makefile: скопіюйте все до свого каталогу
+└── submissions/
 tools/
 ├── make-bisect-repo.sh      — навчальний репозиторій для вправи з git bisect (ЛР 3)
 ├── echo-test.py             — перевірка echo-сервера (додаткова робота з моделей I/O)
@@ -53,7 +57,9 @@ tools/
 ├── bench.py                 — медіана кількох запусків команди (ЛР 4)
 ├── lab05-test.py            — тести launch і calc (ЛР 5)
 ├── kv-gen.py                — детерміноване навантаження для kvcache (ЛР 6)
-└── lab06-test.py            — тести heapprobe, frag, stackprobe і kvcache (ЛР 6)
+├── lab06-test.py            — тести heapprobe, frag, stackprobe і kvcache (ЛР 6)
+├── lab07-setup.sh           — користувачі й /opt/lab07 для ЛР 7 (sudo; --remove прибирає)
+└── lab07-test.py            — тести idinfo, permcheck, pwcheck і notes (ЛР 7)
 ```
 
 ## Правила
