@@ -63,6 +63,15 @@ notes
 notes.c.mine
 mine.txt
 h.txt
+# ЛР 8
+clocks
+ticker
+whenis
+loc
+clocks-*
+ticker-*
+cfg.txt
+bad.txt
 
 # редактори та системні файли
 .vscode/
