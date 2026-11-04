@@ -51,6 +51,10 @@ lab08/
 ├── README.md                — завдання роботи
 ├── starter/                 — clocks, ticker, whenis, loc, units/ і Makefile: скопіюйте все до свого каталогу
 └── submissions/
+lab09/
+├── README.md                — завдання роботи
+├── starter/                 — vercmp, pkgaudit, debian/, repo/, rpm/ і Makefile: скопіюйте все до свого каталогу
+└── submissions/
 tools/
 ├── make-bisect-repo.sh      — навчальний репозиторій для вправи з git bisect (ЛР 3)
 ├── echo-test.py             — перевірка echo-сервера (додаткова робота з моделей I/O)
@@ -64,7 +68,8 @@ tools/
 ├── lab06-test.py            — тести heapprobe, frag, stackprobe і kvcache (ЛР 6)
 ├── lab07-setup.sh           — користувачі й /opt/lab07 для ЛР 7 (sudo; --remove прибирає)
 ├── lab07-test.py            — тести idinfo, permcheck, pwcheck і notes (ЛР 7)
-└── lab08-test.py            — тести clocks, ticker, whenis, loc і таймера systemd (ЛР 8)
+├── lab08-test.py            — тести clocks, ticker, whenis, loc і таймера systemd (ЛР 8)
+└── lab09-test.py            — тести vercmp, pkgaudit і пакета lab09-pkgtools (ЛР 9)
 ```
 
 ## Правила

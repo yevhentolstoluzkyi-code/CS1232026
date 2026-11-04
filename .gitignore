@@ -72,6 +72,12 @@ clocks-*
 ticker-*
 cfg.txt
 bad.txt
+# ЛР 9
+vercmp
+pkgaudit
+build/
+*.deb
+*.rpm
 
 # редактори та системні файли
 .vscode/

@@ -1,0 +1,5 @@
+lab09-pkgtools (1.0-1) unstable; urgency=medium
+
+  * Перший випуск: vercmp і pkgaudit.
+
+ -- Ім'я Прізвище <you@example.org>  Mon, 02 Nov 2026 10:00:00 +0200

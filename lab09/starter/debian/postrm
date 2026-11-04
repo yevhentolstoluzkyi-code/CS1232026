@@ -1,0 +1,13 @@
+#!/bin/sh
+# postrm для lab09-pkgtools.
+# dpkg викликає його з першим аргументом remove, purge, upgrade,
+# failed-upgrade, abort-install, abort-upgrade або disappear.
+set -e
+
+# TODO 5c. Під час purge видаліть каталог зі знімками pkgaudit
+# ${DPKG_ROOT:-}/var/lib/pkgaudit — dpkg про нього не знає. Для решти
+# відомих аргументів нічого не робіть, для невідомого — повідомлення
+# в stderr і exit 1. Скрипт можуть викликати двічі: другий виклик теж
+# має завершитися успішно.
+
+exit 0
