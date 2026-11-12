@@ -1,0 +1,9 @@
+# Фрагмент конфігурації ядра ЛР 10: накладається поверх
+# board/qemu/x86_64/linux.config (BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES).
+#
+# TODO 2. Додайте рядки CONFIG_..., щоб у зібраній системі:
+#   - uname -r показував 6.18.7-lab10 (без суфікса «+» від git);
+#   - конфігурацію ядра можна було прочитати з /proc/config.gz;
+#   - кожен рядок dmesg мав мітку часу [секунди.мікросекунди].
+# Назви опцій шукайте в make linux-menuconfig (клавіша /) або в
+# Documentation ядра; після збирання перевірте output/build/linux-*/.config.

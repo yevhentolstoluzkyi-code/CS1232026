@@ -1,0 +1,7 @@
+config BR2_PACKAGE_LAB10_HELLO
+	bool "lab10-hello"
+	# TODO 5a. Без ядра модуль не зібрати: додайте залежність
+	help
+	  Minimal out-of-tree Linux kernel module for LAB10. It is
+	  built against the kernel of this very image and loaded at
+	  boot from /etc/modules-load.d.

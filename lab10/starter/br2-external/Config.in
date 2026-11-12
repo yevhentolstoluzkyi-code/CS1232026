@@ -1,0 +1,2 @@
+source "$BR2_EXTERNAL_LAB10_PATH/package/lab10-sysinfo/Config.in"
+source "$BR2_EXTERNAL_LAB10_PATH/package/lab10-hello/Config.in"

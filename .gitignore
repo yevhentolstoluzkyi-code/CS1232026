@@ -78,6 +78,18 @@ pkgaudit
 build/
 *.deb
 *.rpm
+# ЛР 10
+**/lab10-sysinfo/src/lab10-sysinfo
+*.ko
+*.mod
+*.mod.c
+.*.cmd
+Module.symvers
+modules.order
+console.log
+sbom.json
+id_ed25519
+id_rsa
 
 # редактори та системні файли
 .vscode/
