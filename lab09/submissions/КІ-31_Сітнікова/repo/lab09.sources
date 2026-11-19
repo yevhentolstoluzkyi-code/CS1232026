@@ -1,0 +1,5 @@
+# Скопіюйте в /etc/apt/sources.list.d/lab09.sources; URIs — каталог, куди публікує repo/publish.sh.
+Types: deb
+URIs: file:/srv/lab09-repo
+Suites: ./
+Signed-By: /etc/apt/keyrings/lab09-repo.gpg
