@@ -1,19 +1,19 @@
-/* overflow.c — «захист» від переповнення, який компілятор має право видалити.
+/* overflow.c — безпечна перевірка переповнення без невизначеної поведінки.
  *
- *   ./overflow-gcc-O0 2147483647 1
- *
- * Зберіть чотири варіанти (gcc і clang, -O0 і -O2) і порівняйте вивід.
+ *   ./overflow-gcc-O2 2147483647 1
  */
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-/* Додає a і b. Повертає -1, якщо сума не вміщується в int. */
+/* Додає a і b. Повертає -1, якщо сума не вміщується в int, без UB. */
 static int add_checked(int a, int b, int *out)
 {
-    int s = a + b;
-    if (b > 0 && s < a)         /* «якщо додали додатне, а стало менше» */
+    if ((b > 0 && a > INT_MAX - b) || (b < 0 && a < INT_MIN - b)) {
         return -1;
-    *out = s;
+    }
+
+    *out = a + b;
     return 0;
 }
 

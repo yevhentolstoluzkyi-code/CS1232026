@@ -1,12 +1,8 @@
-/* buggy.c — шість невеликих функцій, у кожній по одній помилці.
+/* buggy.c — виправлені шість сценаріїв із пояснювальними коментарями.
  *
  *   ./buggy N        де N від 1 до 6 — запустити сценарій N
- *
- * Помилки навмисні: це матеріал для частини 3. Спершу запустіть кожен
- * сценарій звичайною збіркою і запишіть, що бачите. Потім — під ASan,
- * UBSan і Valgrind. Виправляти — лише після того, як інструменти
- * вказали на помилку, а не «на око».
  */
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,19 +10,23 @@
 /* 1. Копія рядка у верхньому регістрі. */
 static char *dup_upper(const char *s)
 {
-    char *r = malloc(strlen(s));
+    size_t len = strlen(s);
+    /* Помилка була: виділялося strlen(s) без урахування завершального '\0'. */
+    char *r = malloc(len + 1);
     if (r == NULL)
         return NULL;
-    strcpy(r, s);
+    memcpy(r, s, len + 1);
     for (char *p = r; *p; p++)
         if (*p >= 'a' && *p <= 'z')
-            *p -= 32;
+            *p = (char)(*p - ('a' - 'A'));
     return r;
 }
 
 static void scenario1(void)
 {
     char *s = dup_upper("wordfreq");
+    if (s == NULL)
+        return;
     printf("%s\n", s);
     free(s);
 }
@@ -39,6 +39,8 @@ static void scenario2(void)
     struct node *head = NULL;
     for (int i = 0; i < 5; i++) {
         struct node *n = malloc(sizeof *n);
+        if (n == NULL)
+            break;
         n->value = i;
         n->next = head;
         head = n;
@@ -46,18 +48,24 @@ static void scenario2(void)
     int sum = 0;
     for (struct node *p = head; p; p = p->next)
         sum += p->value;
-    for (struct node *p = head; p; p = p->next)
+    /* Помилка була: p->next читався після free(p) (use-after-free). */
+    struct node *p = head;
+    while (p != NULL) {
+        struct node *next = p->next;
         free(p);
+        p = next;
+    }
     printf("sum = %d\n", sum);
 }
 
-/* 3. Гістограма довжин слів. Слова довші за MAXLEN рахуються як MAXLEN. */
+/* 3. Гістограма довжин слів (індекси 0..MAXLEN, включно з MAXLEN). */
 #define MAXLEN 8
 
 static void scenario3(void)
 {
     const char *words[] = { "a", "system", "software", "is", "wordfreq" };
-    int hist[MAXLEN] = { 0 };
+    /* Помилка була: масив мав MAXLEN елементів (0..7), але записувався індекс 8. */
+    int hist[MAXLEN + 1] = { 0 };
     int canary = 12345;
     for (size_t i = 0; i < sizeof words / sizeof words[0]; i++) {
         size_t len = strlen(words[i]);
@@ -65,7 +73,7 @@ static void scenario3(void)
             len = MAXLEN;
         hist[len]++;
     }
-    for (int i = 1; i < MAXLEN; i++)
+    for (int i = 1; i <= MAXLEN; i++)
         printf("%d:%d ", i, hist[i]);
     printf("\ncanary = %d\n", canary);
 }
@@ -74,7 +82,8 @@ static void scenario3(void)
 static void scenario4(int argc)
 {
     const char *words[] = { "kernel", "module", "driver" };
-    int total;
+    /* Помилка була: змінна total не ініціалізувалася перед додаванням. */
+    int total = 0;
     for (int i = 0; i < 3; i++)
         total += (int)strlen(words[i]);
     if (argc > 100)             /* argc тут лише для того, щоб компілятор
@@ -92,10 +101,11 @@ static void scenario4(int argc)
 static void scenario5(void)
 {
     const char *s = "the quick brown fox jumps over the lazy dog";
-    int h = 0;
-    for (const char *p = s; *p; p++)
-        h = h * 31 + *p;
-    unsigned idx = (unsigned)h % NBUCKETS;
+    /* Помилка була: переповнення знакового int у циклі хешування (UB). */
+    uint32_t h = 0;
+    for (const unsigned char *p = (const unsigned char *)s; *p; p++)
+        h = h * 31u + (uint32_t)*p;
+    unsigned idx = (unsigned)(h % NBUCKETS);
     printf("bucket = %u\n", idx);
 }
 
@@ -112,7 +122,11 @@ static void scenario6(void)
 {
     for (int i = 0; i < 3; i++) {
         char *line = make_line("kernel", i);
+        if (line == NULL)
+            continue;
         printf("%s\n", line);
+        /* Помилка була: виділений буфер рядка не звільнявся після виводу. */
+        free(line);
     }
 }
 

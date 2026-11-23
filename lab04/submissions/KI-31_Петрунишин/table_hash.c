@@ -18,6 +18,7 @@
 
 #define FNV_OFFSET 14695981039346656037ULL
 #define FNV_PRIME  1099511628211ULL
+#define INIT_BUCKETS 1024U
 
 struct node {
     struct entry e;              /* e.word і e.count — див. wordfreq.h */
@@ -34,37 +35,111 @@ struct table {
 
 static uint64_t fnv1a(const char *p, size_t len)
 {
-    /* TODO: h = FNV_OFFSET; для кожного байта: h ^= байт; h *= FNV_PRIME. */
-    (void)p;
-    (void)len;
-    return 0;
+    uint64_t h = FNV_OFFSET;
+    const unsigned char *bytes = (const unsigned char *)p;
+    for (size_t i = 0; i < len; i++) {
+        h ^= (uint64_t)bytes[i];
+        h *= FNV_PRIME;
+    }
+    return h;
 }
 
 struct table *table_new(void)
 {
-    /* TODO: таблиця з 1024 порожніми кошиками. */
-    return NULL;
+    struct table *t = malloc(sizeof(*t));
+    if (t == NULL) {
+        return NULL;
+    }
+
+    t->buckets = calloc(INIT_BUCKETS, sizeof(*t->buckets));
+    if (t->buckets == NULL) {
+        free(t);
+        return NULL;
+    }
+
+    t->nbuckets = INIT_BUCKETS;
+    t->n = 0;
+    return t;
 }
 
 /* Подвоює кількість кошиків. 0 або -1. */
 static int grow(struct table *t)
 {
-    (void)t;
-    /* TODO */
+    if (t->nbuckets > SIZE_MAX / 2) {
+        return -1;
+    }
+
+    size_t new_nbuckets = t->nbuckets * 2;
+    struct node **new_buckets = calloc(new_nbuckets, sizeof(*new_buckets));
+    if (new_buckets == NULL) {
+        return -1;
+    }
+
+    size_t mask = new_nbuckets - 1;
+    for (size_t i = 0; i < t->nbuckets; i++) {
+        struct node *cur = t->buckets[i];
+        while (cur != NULL) {
+            struct node *next = cur->next;
+            size_t idx = (size_t)(cur->hash & mask);
+            cur->next = new_buckets[idx];
+            new_buckets[idx] = cur;
+            cur = next;
+        }
+    }
+
+    free(t->buckets);
+    t->buckets = new_buckets;
+    t->nbuckets = new_nbuckets;
     return 0;
 }
 
 int table_add(struct table *t, const char *word, size_t len)
 {
-    /* TODO: знайти в кошику запис з тим самим hash, len і вмістом —
-     * збільшити count; інакше створити новий вузол на початку ланцюжка,
-     * а якщо слів стало більше, ніж кошиків, — grow(). */
-    (void)fnv1a;
-    (void)grow;
-    (void)t;
-    (void)word;
-    (void)len;
-    return -1;
+    if (t == NULL) {
+        return -1;
+    }
+
+    uint64_t h = fnv1a(word, len);
+    size_t idx = (size_t)(h & (t->nbuckets - 1));
+
+    for (struct node *cur = t->buckets[idx]; cur != NULL; cur = cur->next) {
+        if (cur->hash == h && cur->len == len && memcmp(cur->e.word, word, len) == 0) {
+            cur->e.count++;
+            return 0;
+        }
+    }
+
+    struct node *node = malloc(sizeof(*node));
+    if (node == NULL) {
+        return -1;
+    }
+
+    char *copy = malloc(len + 1);
+    if (copy == NULL) {
+        free(node);
+        return -1;
+    }
+
+    if (len > 0) {
+        memcpy(copy, word, len);
+    }
+    copy[len] = '\0';
+
+    node->e.word = copy;
+    node->e.count = 1;
+    node->hash = h;
+    node->len = len;
+    node->next = t->buckets[idx];
+    t->buckets[idx] = node;
+    t->n++;
+
+    if (t->n > t->nbuckets) {
+        if (grow(t) != 0) {
+            return -1;
+        }
+    }
+
+    return 0;
 }
 
 size_t table_size(const struct table *t)
@@ -74,13 +149,49 @@ size_t table_size(const struct table *t)
 
 struct entry **table_entries(const struct table *t)
 {
-    /* TODO: масив із t->n вказівників &node->e. */
-    (void)t;
-    return NULL;
+    if (t == NULL) {
+        return NULL;
+    }
+
+    struct entry **arr = NULL;
+    if (t->n > 0) {
+        arr = malloc(t->n * sizeof(*arr));
+        if (arr == NULL) {
+            return NULL;
+        }
+    } else {
+        arr = malloc(sizeof(*arr));
+        if (arr == NULL) {
+            return NULL;
+        }
+    }
+
+    size_t pos = 0;
+    for (size_t i = 0; i < t->nbuckets; i++) {
+        for (struct node *cur = t->buckets[i]; cur != NULL; cur = cur->next) {
+            arr[pos++] = &cur->e;
+        }
+    }
+
+    return arr;
 }
 
 void table_free(struct table *t)
 {
-    /* TODO */
-    (void)t;
+    if (t == NULL) {
+        return;
+    }
+
+    for (size_t i = 0; i < t->nbuckets; i++) {
+        struct node *cur = t->buckets[i];
+        while (cur != NULL) {
+            struct node *next = cur->next;
+            free(cur->e.word);
+            free(cur);
+            cur = next;
+        }
+    }
+
+    free(t->buckets);
+    free(t);
 }
