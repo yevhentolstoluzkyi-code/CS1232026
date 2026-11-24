@@ -46,15 +46,39 @@ static double median(double *v, int n)
 static double one_fork(char *buf, size_t size, int touch, long *minflt)
 {
     long page = sysconf(_SC_PAGESIZE);
-    /* TODO 4: виміряти час самого виклику fork() у батька (now_ms до і після).
-     * Дитина: якщо touch — змінити по одному байту в кожній сторінці buf
-     * (крок page), потім одразу _exit(0) — чому не exit і не return?
-     * Батько: дочекатися дитини через wait4 (не waitpid!) і записати в
-     * *minflt поле ru_minflt — сторінкові збої саме цієї дитини.
-     * Не забудьте EINTR. Повернути виміряний час у мілісекундах. */
-    (void)buf; (void)size; (void)touch; (void)page;
-    *minflt = 0;
-    return 0;
+    double t0 = now_ms();
+    pid_t pid = fork();
+    double t1 = now_ms();
+    if (pid < 0) {
+        perror("forkcost: fork");
+        exit(1);
+    }
+
+    if (pid == 0) {
+        if (touch && buf && size > 0 && page > 0) {
+            size_t step = (size_t)page;
+            for (size_t off = 0; off < size; off += step) {
+                buf[off] ^= 1;
+            }
+        }
+        _exit(0);
+    }
+
+    int status = 0;
+    struct rusage ru;
+    memset(&ru, 0, sizeof ru);
+    pid_t w;
+    do {
+        w = wait4(pid, &status, 0, &ru);
+    } while (w == -1 && errno == EINTR);
+
+    if (w < 0) {
+        perror("forkcost: wait4");
+        exit(1);
+    }
+
+    *minflt = ru.ru_minflt;
+    return t1 - t0;
 }
 
 static double one_spawn(void)
