@@ -14,6 +14,7 @@
  */
 #define _POSIX_C_SOURCE 200809L   /* strdup */
 #include <ctype.h>
+#include <limits.h>
 #include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,16 +55,18 @@ static long long factor(int depth)
     if (*p == '-') {
         p++;
         long long v = factor(depth + 1);
-        /* TODO 5: -v переповнюється для одного значення v. Якого? */
+        if (v == LLONG_MIN) fail("overflow");
         return -v;
     }
     if (!isdigit((unsigned char)*p)) fail("syntax error");
     long long v = 0;
     while (isdigit((unsigned char)*p)) {
-        /* TODO 5: v * 10 + цифра може не вміститися в long long.
-         * Перевірка — через __builtin_mul_overflow / __builtin_add_overflow,
-         * повідомлення — fail("overflow"). */
-        v = v * 10 + (*p - '0');
+        long long tmp = 0, next = 0;
+        if (__builtin_mul_overflow(v, 10LL, &tmp) ||
+            __builtin_add_overflow(tmp, (long long)(*p - '0'), &next)) {
+            fail("overflow");
+        }
+        v = next;
         p++;
     }
     return v;
@@ -79,10 +82,13 @@ static long long term(int depth)
         p++;
         long long r = factor(depth);
         if (op == '*') {
-            v *= r;                 /* TODO 5: переповнення */
+            long long prod = 0;
+            if (__builtin_mul_overflow(v, r, &prod)) fail("overflow");
+            v = prod;
         } else {
             if (r == 0) fail("division by zero");
-            v /= r;                 /* TODO 5: є одна пара, для якої і це переповнення */
+            if (v == LLONG_MIN && r == -1LL) fail("overflow");
+            v /= r;
         }
     }
 }
@@ -96,18 +102,26 @@ static long long expr(int depth)
         if (op != '+' && op != '-') return v;
         p++;
         long long r = term(depth);
-        v = (op == '+') ? v + r : v - r;   /* TODO 5: переповнення */
+        long long res = 0;
+        if (op == '+' ) {
+            if (__builtin_add_overflow(v, r, &res)) fail("overflow");
+        } else {
+            if (__builtin_sub_overflow(v, r, &res)) fail("overflow");
+        }
+        v = res;
     }
 }
 
 int main(void)
 {
     char buf[1024];
-    int lines = 0, errors = 0;
-    char *text = NULL;
+    int volatile lines = 0, errors = 0;
+    char *volatile text = NULL;
 
     if (setjmp(on_error) != 0) {
         /* Сюди потрапляємо з fail(): другий «вихід» із setjmp */
+        free(text);
+        text = NULL;
         errors++;
         printf("error: %s\n", err_msg);
     }
@@ -115,6 +129,7 @@ int main(void)
     while (fgets(buf, sizeof buf, stdin)) {
         lines++;
         buf[strcspn(buf, "\n")] = '\0';
+        free(text);
         text = strdup(buf);         /* робоча копія рядка для парсера */
         if (!text) {
             perror("calc");
@@ -126,7 +141,9 @@ int main(void)
         if (*p != '\0') fail("trailing garbage");
         printf("%lld\n", v);
         free(text);
+        text = NULL;
     }
+    free(text);
     printf("lines=%d errors=%d\n", lines, errors);
     return errors ? 1 : 0;
 }
