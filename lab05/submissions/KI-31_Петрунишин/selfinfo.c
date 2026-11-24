@@ -17,6 +17,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,15 +66,39 @@ static int collect_fds(struct fdinfo *out, int max)
  * скопіювати в name останнє поле (шлях, [heap], [stack]) або «anon». */
 static int region_of(const void *addr, char *name, size_t size)
 {
-    /* TODO 1: відкрити /proc/self/maps і знайти рядок, діапазон якого
-     * «початок-кінець» містить addr (початок включно, кінець — ні).
-     * Записати в name права доступу і останнє поле рядка — шлях, [heap],
-     * [stack] — або «anon», якщо поля немає: snprintf(name, size, "%s %s", ...).
-     * Повернути 0, якщо знайдено, і -1 інакше. Формат рядка: man 5 proc,
-     * розділ /proc/pid/maps. Підказка: sscanf з %lx і %n. */
-    (void)addr;
-    snprintf(name, size, "TODO");
-    return -1;
+    FILE *fp = fopen("/proc/self/maps", "r");
+    if (!fp) return -1;
+
+    unsigned long target = (unsigned long)(uintptr_t)addr;
+    char line[4096];
+    int found = -1;
+
+    while (fgets(line, sizeof line, fp) != NULL) {
+        unsigned long start = 0, end = 0;
+        char perms[16] = {0};
+        int pos = 0;
+
+        if (sscanf(line, "%lx-%lx %15s %*x %*x:%*x %*u %n",
+                   &start, &end, perms, &pos) < 3) {
+            continue;
+        }
+
+        if (target >= start && target < end) {
+            char *p = line + pos;
+            while (*p == ' ' || *p == '\t') p++;
+            size_t len = strlen(p);
+            while (len > 0 && (p[len - 1] == '\n' || p[len - 1] == '\r' || p[len - 1] == ' ' || p[len - 1] == '\t')) {
+                p[--len] = '\0';
+            }
+            const char *label = (len > 0) ? p : "anon";
+            snprintf(name, size, "%s %s", perms, label);
+            found = 0;
+            break;
+        }
+    }
+
+    fclose(fp);
+    return found;
 }
 
 static void print_region(FILE *out, const char *what, const void *addr)
