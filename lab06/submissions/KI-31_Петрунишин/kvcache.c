@@ -34,12 +34,10 @@ struct kv {
     size_t count;
 };
 
-/* Історія запитів GET: однозв'язний список, новіші — на початку. */
-struct hnode {
-    char *key;
-    struct hnode *next;
-};
-static struct hnode *history;
+/* Історія запитів GET: кільцевий буфер на HIST_SHOW рядків, новіші — першими при виводі. */
+static char *hist_buf[HIST_SHOW];
+static size_t hist_head; /* позиція наступного запису */
+static size_t hist_len;  /* поточна кількість збережених елементів (<= HIST_SHOW) */
 
 static void *xmalloc(size_t n)
 {
@@ -85,6 +83,7 @@ static void kv_set(struct kv *t, const char *key, const char *val)
 {
     struct entry **pp = kv_slot(t, key);
     if (*pp) {
+        free((*pp)->val); /* шаблон витоку: перезапис без звільнення */
         (*pp)->val = xstrdup(val);
         return;
     }
@@ -108,6 +107,8 @@ static int kv_del(struct kv *t, const char *key)
     struct entry *e = *pp;
     if (!e) return 0;
     *pp = e->next;
+    free(e->key); /* шаблон витоку: структура без полів */
+    free(e->val); /* шаблон витоку: структура без полів */
     free(e);
     t->count--;
     return 1;
@@ -116,6 +117,17 @@ static int kv_del(struct kv *t, const char *key)
 /* TODO 4. Звільнити всю пам'ять таблиці. */
 static void kv_destroy(struct kv *t)
 {
+    for (size_t i = 0; i < t->nbucket; i++) {
+        struct entry *cur = t->bucket[i];
+        while (cur) {
+            struct entry *next = cur->next; /* шаблон витоку: знищення контейнера */
+            free(cur->key);
+            free(cur->val);
+            free(cur);
+            cur = next;
+        }
+        t->bucket[i] = NULL;
+    }
     free(t->bucket);
     t->bucket = NULL;
     t->nbucket = t->count = 0;
@@ -123,24 +135,35 @@ static void kv_destroy(struct kv *t)
 
 /* ---------------- історія ---------------- */
 
-/* TODO 5. Історії потрібні лише HIST_SHOW останніх ключів, а список
- * росте з кожним GET. Замініть його кільцевим буфером на HIST_SHOW
- * рядків і не забудьте звільнити його наприкінці роботи. */
+/* TODO 5 (шаблон витоку: ріст без межі): кільцевий буфер фіксованого розміру HIST_SHOW. */
 static void history_add(const char *key)
 {
-    struct hnode *h = xmalloc(sizeof *h);
-    h->key = xstrdup(key);
-    h->next = history;
-    history = h;
+    char *dup = xstrdup(key);
+    free(hist_buf[hist_head]); /* якщо слот уже зайнятий — звільняємо старий ключ */
+    hist_buf[hist_head] = dup;
+    hist_head = (hist_head + 1) % HIST_SHOW;
+    if (hist_len < HIST_SHOW)
+        hist_len++;
 }
 
 static void history_print(void)
 {
     fputs("history", stdout);
-    int n = 0;
-    for (struct hnode *h = history; h && n < HIST_SHOW; h = h->next, n++)
-        printf(" %s", h->key);
+    for (size_t i = 0; i < hist_len; i++) {
+        size_t idx = (hist_head + HIST_SHOW - 1 - i) % HIST_SHOW;
+        printf(" %s", hist_buf[idx]);
+    }
     putchar('\n');
+}
+
+static void history_free(void)
+{
+    for (size_t i = 0; i < HIST_SHOW; i++) {
+        free(hist_buf[i]);
+        hist_buf[i] = NULL;
+    }
+    hist_head = 0;
+    hist_len = 0;
 }
 
 /* ---------------- ввід ---------------- */
@@ -180,7 +203,11 @@ static void execute(struct kv *t, char *line)
         if (!k) { puts("error: usage"); return; }
         char *key = xstrdup(k);
         char *val = strtok(NULL, "");          /* решта рядка */
-        if (!val) { puts("error: usage"); return; }
+        if (!val) {
+            free(key); /* шаблон витоку: ранній вихід */
+            puts("error: usage");
+            return;
+        }
         kv_set(t, key, val);
         free(key);
         puts("OK");
@@ -213,6 +240,7 @@ int main(void)
     while ((line = read_line(stdin, &buf, &cap)) != NULL)
         execute(&t, line);
     free(buf);
+    history_free();
     kv_destroy(&t);
     return 0;
 }
