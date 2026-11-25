@@ -1,0 +1,6 @@
+config BR2_PACKAGE_LAB10_SYSINFO
+	bool "lab10-sysinfo"
+	help
+	  Prints a short report about the running system: kernel,
+	  C library, uptime, memory, processes and loaded kernel
+	  modules. Used to check the LAB10 image.

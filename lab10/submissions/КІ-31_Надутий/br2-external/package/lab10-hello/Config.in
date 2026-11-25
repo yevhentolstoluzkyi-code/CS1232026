@@ -1,0 +1,9 @@
+config BR2_PACKAGE_LAB10_HELLO
+	bool "lab10-hello"
+	depends on BR2_LINUX_KERNEL
+	help
+	  Minimal out-of-tree Linux kernel module for LAB10.
+	  Built against the kernel of the target image.
+
+comment "lab10-hello needs a Linux kernel to be built"
+	depends on !BR2_LINUX_KERNEL
