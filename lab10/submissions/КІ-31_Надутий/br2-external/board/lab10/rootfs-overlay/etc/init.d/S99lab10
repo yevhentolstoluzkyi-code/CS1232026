@@ -1,0 +1,24 @@
+#!/bin/sh
+#
+# Останній скрипт старту: фіксує, скільки тривало завантаження,
+# і друкує звіт lab10-sysinfo на консоль.
+#
+
+case "$1" in
+	start)
+		read -r up _ < /proc/uptime
+		echo "LAB10 boot done in ${up} s" > /dev/kmsg
+		echo "${up}" > /tmp/lab10-boot.txt
+		/usr/bin/lab10-sysinfo
+		;;
+	stop|restart|reload)
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart|reload}"
+		exit 1
+		;;
+esac
+
+exit 0
+
+# check-package Ignore missing DAEMON Variables
