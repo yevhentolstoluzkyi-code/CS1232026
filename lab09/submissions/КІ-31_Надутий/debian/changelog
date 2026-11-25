@@ -1,3 +1,9 @@
+lab09-pkgtools (1.1-1) unstable; urgency=medium
+
+  * Оновлення пакета для перевірки роботи APT.
+
+ -- Denys Nadutyi <denys.nadutyi@student.karazin.ua>  Wed, 25 Nov 2026 10:24:24 +0200
+
 lab09-pkgtools (1.0-1) unstable; urgency=medium
 
   * Перший випуск: vercmp і pkgaudit.
