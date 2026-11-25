@@ -361,6 +361,24 @@ GCC 11.4.0 (Ubuntu).
 Таким чином, перевірено не лише повторне встановлення,
 а й фактичну компіляцію програми крос-компілятором.
 
+### Фактичний вивід lab10-sysinfo з гостя
+
+Після підключення до QEMU через SSH виконано
+`lab10-sysinfo`. Отримано:
+
+    lab10-sysinfo 1.0
+    host:    lab10-nadutyi
+    kernel:  Linux 6.18.7-lab10 x86_64
+    libc:    glibc 2.41
+    uptime:  419.84 s
+    memory:  total 234 MiB, available 214 MiB
+    procs:   55
+    modules: 1 loaded, lab10_hello: yes
+    rootfs:  used 8.9 of 55.1 MiB
+
+Це фактичний результат повторної перевірки
+запущеної системи, а не прогнозовані значення.
+
 ### Питання для звіту 5
 
 **Що показує `readelf -p .comment` для програми з `target/`
@@ -540,6 +558,28 @@ Buildroot копіює джерела у власний каталог
 Отже, підтверджено автозавантаження, ручне
 завантаження з параметром, перевірку через
 `lab10-sysinfo` та успішне вивантаження.
+
+### Фактичний вивід modinfo
+
+Команда:
+`modinfo ~/br-lab10/target/lib/modules/6.18.7-lab10/updates/lab10_hello.ko`
+
+Отримано:
+
+    filename: /home/denna/br-lab10/target/lib/modules/6.18.7-lab10/updates/lab10_hello.ko
+    description: LAB10: out-of-tree module packaged by Buildroot
+    author: LAB10 student
+    license: GPL
+    depends:
+    name: lab10_hello
+    retpoline: Y
+    vermagic: 6.18.7-lab10 SMP preempt mod_unload
+    parm: greeting:Who to greet; see /sys/module/lab10_hello/parameters/greeting (charp)
+
+Модуль зібрано для ядра `6.18.7-lab10`.
+Він має ліцензію GPL, не має зазначених
+залежностей від інших модулів і підтримує
+параметр `greeting`.
 
 ### Питання для звіту 7
 
