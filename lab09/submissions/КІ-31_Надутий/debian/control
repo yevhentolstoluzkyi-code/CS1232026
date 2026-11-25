@@ -1,0 +1,18 @@
+Source: lab09-pkgtools
+Section: admin
+Priority: optional
+Maintainer: Denys Nadutyi <denys.nadutyi@student.karazin.ua>
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+
+Package: lab09-pkgtools
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Tools for Debian package version comparison and auditing
+ This package provides two command-line utilities.
+ .
+ The vercmp utility compares Debian package versions using dpkg
+ version ordering rules.
+ .
+ The pkgaudit utility analyses installed packages, dependencies,
+ reverse usage, package leaves and package snapshots.
