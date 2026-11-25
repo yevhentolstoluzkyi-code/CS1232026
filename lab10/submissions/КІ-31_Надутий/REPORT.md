@@ -464,3 +464,46 @@ Buildroot використовує файли .stamp_* для фіксації
 
 Приватний SSH-ключ зберігається лише на хостовій машині.
 До rootfs overlay додано тільки відкритий ключ.
+
+## Частина 6. Автоматичні тести та вимірювання
+
+### Автоматична перевірка
+
+Запущено `lab10-test.py` з параметрами:
+`--output ~/br-lab10 --buildroot ~/buildroot
+--ssh-key ~/.ssh/id_ed25519`.
+
+Результат: **17/17**, код завершення 0.
+Усі тести OK, помилок і пропущених тестів немає.
+
+Успішні перевірки:
+`t_tree`, `t_defconfig`, `t_fragment`, `t_packages`,
+`t_overlay`, `t_check_package`, `t_output_config`,
+`t_output_cross`, `t_output_module`, `t_boot`,
+`t_kernel`, `t_module_autoload`, `t_module_cycle`,
+`t_sysinfo`, `t_boot_script`, `t_ssh`, `t_poweroff`.
+
+Результати одного запуску з KVM:
+
+| Показник | Значення |
+|---|---:|
+| Прискорення | KVM |
+| login_s | 2.31 с |
+| init_s | 1.40 с |
+| s99_s | 1.25 с |
+| Ядро | 6.18.7-lab10 |
+| Процеси | 58 |
+| Пам'ять | 234 MiB |
+| Використано rootfs | 8.90 MiB |
+| bzImage | 6616064 байти |
+| rootfs.ext2 | 62914560 байтів |
+
+Для проходження `t_output_cross` у defconfig
+додано `BR2_STRIP_EXCLUDE_FILES="lab10-sysinfo"`.
+
+У зібраній програмі збережено секцію `.comment`,
+яка підтверджує GCC 14.3.0 із тулчейна Buildroot.
+
+Для порівняння KVM і TCG необхідно виконати ще
+три окремі запуски кожного режиму та обчислити
+медіани; наведені вище значення не є медіанами.
