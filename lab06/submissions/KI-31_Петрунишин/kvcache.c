@@ -176,9 +176,16 @@ static char *read_line(FILE *f, char **buf, size_t *cap)
     int c;
     while ((c = getc(f)) != EOF && c != '\n') {
         if (len + 1 >= *cap) {
-            *cap = *cap ? 2 * *cap : 64;
-            *buf = realloc(*buf, *cap);
-            if (!*buf) return NULL;            /* пам'яті немає — далі не читаємо */
+            size_t new_cap = *cap ? 2 * *cap : 64;
+            char *nb = realloc(*buf, new_cap); /* шаблон витоку: затирання вказівника при невдалому realloc */
+            if (!nb) {
+                free(*buf);
+                *buf = NULL;
+                *cap = 0;
+                return NULL;                   /* пам'яті немає — далі не читаємо */
+            }
+            *buf = nb;
+            *cap = new_cap;
         }
         (*buf)[len++] = (char)c;
     }
