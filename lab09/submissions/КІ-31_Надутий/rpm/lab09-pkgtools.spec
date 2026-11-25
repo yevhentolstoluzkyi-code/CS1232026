@@ -1,6 +1,6 @@
 # Той самий пакет у форматі RPM: метадані й інструкція збірки в одному файлі.
 Name:           lab09-pkgtools
-Version:        1.0
+Version:        1.1
 Release:        1%{?dist}
 Summary:        Package version comparison and installed-package audit
 License:        MIT
@@ -29,5 +29,5 @@ leaf packages.
 %config(noreplace) %{_sysconfdir}/pkgaudit.conf
 
 %changelog
-* Mon Nov 02 2026 Ім'я Прізвище <you@example.org> - 1.0-1
-- First release
+* Wed Nov 25 2026 Denys Nadutyi <denys.nadutyi@student.karazin.ua> - 1.1-1
+- Package build for comparison with Debian format
