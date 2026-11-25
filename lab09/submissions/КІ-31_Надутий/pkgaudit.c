@@ -248,17 +248,36 @@ typedef void (*dep_cb)(const char *name, void *ctx);
  * Назва — лише сама назва: без пробілів, дужок і кваліфікатора. */
 static void parse_deps(const char *field, dep_cb cb, void *ctx)
 {
-    /* TODO 3. Розберіть поле й викличте cb(назва, ctx) для кожної назви —
-     * і для обов'язкових залежностей, і для кожної з альтернатив.
-     *   - поле може бути NULL або порожнім — тоді нічого не робити;
-     *   - не псуйте field: розбирайте копію (xstrdup) і звільніть її;
-     *   - strtok_r для ',' і всередині — ще один strtok_r для '|'
-     *     (strtok без _r тут не годиться: два розбори вкладені);
-     *   - з кожного шматка приберіть пробіли (trim) і відріжте все, що
-     *     починається з пробілу, '(', '[', '<' або ':' (strcspn).
-     *
-     * Каркас не знаходить жодної залежності. */
-    (void)field; (void)cb; (void)ctx;
+    /* TODO 3: коми — групи, | — альтернативи.
+     * Розбираємо копію, щоб не змінювати поле з бази dpkg. */
+    if (field == NULL || *field == '\0')
+        return;
+
+    char *copy = xstrdup(field);
+    char *save_comma = NULL;
+
+    for (char *group = strtok_r(copy, ",", &save_comma);
+         group != NULL;
+         group = strtok_r(NULL, ",", &save_comma)) {
+
+        char *save_alt = NULL;
+
+        for (char *alt = strtok_r(group, "|", &save_alt);
+             alt != NULL;
+             alt = strtok_r(NULL, "|", &save_alt)) {
+
+            char *name = trim(alt);
+
+            /* Назва закінчується перед обмеженнями та
+             * кваліфікатором архітектури. */
+            name[strcspn(name, " \t\r\n([<:")] = '\0';
+
+            if (*name != '\0')
+                cb(name, ctx);
+        }
+    }
+
+    free(copy);
 }
 
 /* ---------- stats ---------- */
@@ -313,19 +332,44 @@ static int cmd_deps(const char *name)
  * що надають (Provides) віртуальний пакет name. */
 struct mark_ctx { const struct pkg *self; };
 
+/* Допоміжний контекст для пошуку віртуального пакета в Provides. */
+struct provides_ctx {
+    const char *wanted;
+    int found;
+};
+
+static void check_provides(const char *name, void *ctx)
+{
+    struct provides_ctx *p = ctx;
+
+    if (strcmp(name, p->wanted) == 0)
+        p->found = 1;
+}
+
 static void mark_used(const char *name, void *ctx)
 {
-    /* TODO 4. Пакет pkgs[i] потрібен (used = 1), якщо
-     *   - його назва збігається з name, або
-     *   - у його полі Provides є name (розберіть Provides тією самою
-     *     parse_deps: синтаксис у Provides такий самий — «назва (= версія)»).
-     * Залежність пакета від самого себе (m->self) не рахується.
-     * Підказка: щоб дізнатися з колбека parse_deps, чи трапилася назва,
-     * передайте через ctx невелику структуру або масив.
-     *
-     * Каркас нічого не позначає: усі пакети, крім обов'язкових, — «листки». */
+    /* TODO 4: позначаємо всі встановлені пакети, які задовольняють
+     * залежність безпосередньо за назвою або через Provides.
+     * Власну залежність пакета від самого себе не враховуємо. */
     const struct mark_ctx *m = ctx;
-    (void)name; (void)m;
+
+    for (size_t i = 0; i < npkgs; i++) {
+        struct pkg *p = &pkgs[i];
+
+        if (p == m->self)
+            continue;
+
+        if (strcmp(p->name, name) == 0) {
+            p->used = 1;
+            continue;
+        }
+
+        struct provides_ctx pc = { name, 0 };
+        parse_deps(p->provides, check_provides, &pc);
+
+        if (pc.found)
+            p->used = 1;
+    }
 }
 
 static int cmd_leaves(void)
