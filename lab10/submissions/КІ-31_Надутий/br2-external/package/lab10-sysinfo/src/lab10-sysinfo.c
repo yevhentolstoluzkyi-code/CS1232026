@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/utsname.h>
 #include <unistd.h>
@@ -80,8 +81,26 @@ static int all_digits(const char *s)
  */
 static int count_processes(void)
 {
-	(void)all_digits; /* приберіть цей рядок, коли використаєте all_digits() */
-	return -1;
+        DIR *dir = opendir("/proc");
+        struct dirent *entry;
+        int count = 0;
+
+        if (!dir)
+                return -1;
+
+        while ((entry = readdir(dir)) != NULL) {
+                struct stat st;
+
+                if (!all_digits(entry->d_name))
+                        continue;
+
+                if (fstatat(dirfd(dir), entry->d_name, &st, 0) == 0
+                    && S_ISDIR(st.st_mode))
+                        count++;
+        }
+
+        closedir(dir);
+        return count;
 }
 
 /*
@@ -93,10 +112,36 @@ static int count_processes(void)
  */
 static int scan_modules(const char *want, int *found)
 {
-	(void)want;
-	if (found)
-		*found = 0;
-	return -1;
+        FILE *file;
+        char line[512];
+        char name[256];
+        int count = 0;
+
+        if (found)
+                *found = 0;
+
+        file = fopen("/proc/modules", "r");
+        if (!file)
+                return -1;
+
+        while (fgets(line, sizeof line, file)) {
+                count++;
+
+                if (want && found
+                    && sscanf(line, "%255s", name) == 1
+                    && strcmp(name, want) == 0)
+                        *found = 1;
+        }
+
+        if (ferror(file)) {
+                int saved_errno = errno;
+                fclose(file);
+                errno = saved_errno;
+                return -1;
+        }
+
+        fclose(file);
+        return count;
 }
 
 static const char *libc_name(void)
