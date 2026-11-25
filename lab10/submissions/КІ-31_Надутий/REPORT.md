@@ -515,6 +515,32 @@ Buildroot копіює джерела у власний каталог
 
 Систему штатно завершено командою `poweroff`.
 
+### Ручна перевірка модуля lab10_hello
+
+У QEMU перевірено ядро `6.18.7-lab10` і модуль
+`lab10_hello`, який автоматично завантажився
+з параметром `greeting=Nadutyi`.
+
+| Перевірка | Фактичний результат |
+|---|---|
+| `lsmod` | `lab10_hello`, 12288 байтів, Used by 0 |
+| Початковий `greeting` | `Nadutyi` |
+| Перше `rmmod` | `bye, Nadutyi after 28156 ms` |
+| `modprobe lab10_hello greeting=test` | Код 0 |
+| Новий `greeting` | `test` |
+| `lab10-sysinfo -m lab10_hello` | `loaded`, код 0 |
+| Фінальне `rmmod` | Код 0 |
+
+Повідомлення ядра:
+
+- `[30.017792] lab10_hello: bye, Nadutyi after 28156 ms`
+- `[30.056641] lab10_hello: hello, test (kernel 6.18.7-lab10, HZ=250)`
+- `[30.128610] lab10_hello: bye, test after 72 ms`
+
+Отже, підтверджено автозавантаження, ручне
+завантаження з параметром, перевірку через
+`lab10-sysinfo` та успішне вивантаження.
+
 ### Питання для звіту 7
 
 **Який `vermagic` модуля, з чого він складається?
