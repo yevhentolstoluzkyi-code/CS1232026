@@ -11,6 +11,9 @@ LAB11_BPF_LICENSE = GPL-2.0
 LAB11_BPF_LICENSE_FILES = COPYING
 LAB11_BPF_DEPENDENCIES = libbpf
 
+# eBPF ELF objects use EM_BPF, not the target CPU architecture.
+LAB11_BPF_BIN_ARCH_EXCLUDE = /usr/lib/lab11/.*\.bpf\.o
+
 # BPF byte code is built by clang of the build machine: building
 # host-clang in Buildroot would take longer than the whole lab.
 # libbpf installs fresh UAPI headers into usr/include/bpf when the
