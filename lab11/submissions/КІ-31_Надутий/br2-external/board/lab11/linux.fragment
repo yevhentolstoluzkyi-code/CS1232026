@@ -1,0 +1,19 @@
+# Фрагмент конфігурації ядра ЛР 11: накладається поверх
+# board/qemu/x86_64/linux.config (BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES).
+
+# Те саме, що в ЛР 10, але версія -lab11: модулі ЛР 10 цьому ядру чужі.
+CONFIG_LOCALVERSION="-lab11"
+# CONFIG_LOCALVERSION_AUTO is not set
+CONFIG_IKCONFIG=y
+CONFIG_IKCONFIG_PROC=y
+CONFIG_PRINTK_TIME=y
+
+# TODO 1: підтримка eBPF і трасування.
+CONFIG_BPF_SYSCALL=y
+CONFIG_BPF_JIT=y
+CONFIG_FTRACE=y
+CONFIG_KPROBE_EVENTS=y
+CONFIG_FTRACE_SYSCALLS=y
+CONFIG_KPROBES=y
+CONFIG_BPF_EVENTS=y
+CONFIG_DYNAMIC_DEBUG=y

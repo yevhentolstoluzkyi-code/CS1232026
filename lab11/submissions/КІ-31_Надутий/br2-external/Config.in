@@ -1,0 +1,2 @@
+source "$BR2_EXTERNAL_LAB11_PATH/package/lab11-opencount/Config.in"
+source "$BR2_EXTERNAL_LAB11_PATH/package/lab11-bpf/Config.in"
