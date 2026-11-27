@@ -8,12 +8,10 @@ CONFIG_IKCONFIG=y
 CONFIG_IKCONFIG_PROC=y
 CONFIG_PRINTK_TIME=y
 
-# TODO 1. Допишіть рядки CONFIG_...=y, щоб ядро вміло:
-#   - приймати програми eBPF (системний виклик bpf());
-#   - перекладати байт-код BPF у машинний код (JIT);
-#   - надавати точки трасування системних викликів (syscalls/sys_enter_*);
-#   - під'єднувати kprobes до функцій ядра;
-#   - запускати програми eBPF на точках трасування і kprobes;
-#   - вмикати pr_debug() під час роботи (dynamic debug).
-# Назви опцій шукайте в make linux-menuconfig (клавіша /), але саму
-# конфігурацію через меню не зберігайте: зміни мають бути тут.
+# TODO 1: підтримка eBPF і трасування.
+CONFIG_BPF_SYSCALL=y
+CONFIG_BPF_JIT=y
+CONFIG_FTRACE_SYSCALLS=y
+CONFIG_KPROBES=y
+CONFIG_BPF_EVENTS=y
+CONFIG_DYNAMIC_DEBUG=y
