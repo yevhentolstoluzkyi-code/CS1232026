@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# Файлові системи, без яких не працюють інструменти ЛР 11:
+#   tracefs (/sys/kernel/tracing) — опис точок трасування; libbpf шукає
+#           тут номер події, до якої під'єднує програму eBPF;
+#   bpffs   (/sys/fs/bpf)         — місце, де bpftool «пришпилює» програми
+#           й мапи, щоб вони пережили процес, який їх завантажив.
+#
+
+case "$1" in
+	start)
+		grep -q ' /sys/kernel/tracing ' /proc/mounts ||
+			mount -t tracefs nodev /sys/kernel/tracing
+		grep -q ' /sys/fs/bpf ' /proc/mounts ||
+			mount -t bpf bpf /sys/fs/bpf
+		;;
+	stop|restart|reload)
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart|reload}"
+		exit 1
+		;;
+esac
+
+exit 0
+
+# check-package Ignore missing DAEMON Variables

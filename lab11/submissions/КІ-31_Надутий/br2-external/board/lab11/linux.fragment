@@ -1,0 +1,19 @@
+# Фрагмент конфігурації ядра ЛР 11: накладається поверх
+# board/qemu/x86_64/linux.config (BR2_LINUX_KERNEL_CONFIG_FRAGMENT_FILES).
+
+# Те саме, що в ЛР 10, але версія -lab11: модулі ЛР 10 цьому ядру чужі.
+CONFIG_LOCALVERSION="-lab11"
+# CONFIG_LOCALVERSION_AUTO is not set
+CONFIG_IKCONFIG=y
+CONFIG_IKCONFIG_PROC=y
+CONFIG_PRINTK_TIME=y
+
+# TODO 1. Допишіть рядки CONFIG_...=y, щоб ядро вміло:
+#   - приймати програми eBPF (системний виклик bpf());
+#   - перекладати байт-код BPF у машинний код (JIT);
+#   - надавати точки трасування системних викликів (syscalls/sys_enter_*);
+#   - під'єднувати kprobes до функцій ядра;
+#   - запускати програми eBPF на точках трасування і kprobes;
+#   - вмикати pr_debug() під час роботи (dynamic debug).
+# Назви опцій шукайте в make linux-menuconfig (клавіша /), але саму
+# конфігурацію через меню не зберігайте: зміни мають бути тут.

@@ -1,0 +1,10 @@
+config BR2_PACKAGE_LAB11_OPENCOUNT
+	bool "lab11-opencount"
+	depends on BR2_LINUX_KERNEL
+	help
+	  LAB11 kernel modules: lab11_opencount counts openat() calls
+	  through the sys_enter tracepoint; lab11_oops shows what a
+	  bug in a kernel module does to the system.
+
+comment "lab11-opencount needs a Linux kernel to be built"
+	depends on !BR2_LINUX_KERNEL

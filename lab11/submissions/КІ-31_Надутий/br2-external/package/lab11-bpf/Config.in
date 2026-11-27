@@ -1,0 +1,22 @@
+config BR2_PACKAGE_LAB11_BPF
+	bool "lab11-bpf"
+	depends on BR2_TOOLCHAIN_HAS_SYNC_4 # libbpf
+	depends on BR2_USE_WCHAR # libbpf
+	depends on !BR2_STATIC_LIBS # libbpf
+	depends on BR2_TOOLCHAIN_HAS_THREADS # libbpf
+	depends on BR2_TOOLCHAIN_HEADERS_AT_LEAST_4_13 # libbpf
+	select BR2_PACKAGE_LIBBPF
+	help
+	  LAB11 eBPF tools: opencount (loader for the opencount.bpf.o
+	  tracepoint program), openbench (cost of one openat) and
+	  three programs that the BPF verifier must reject.
+
+	  The BPF objects are compiled with clang from the build
+	  machine: install it with your distribution (apt install
+	  clang).
+
+comment "lab11-bpf needs a toolchain w/ wchar, dynamic library, threads, headers >= 4.13"
+	depends on BR2_TOOLCHAIN_HAS_SYNC_4
+	depends on !BR2_USE_WCHAR || BR2_STATIC_LIBS \
+		|| !BR2_TOOLCHAIN_HAS_THREADS \
+		|| !BR2_TOOLCHAIN_HEADERS_AT_LEAST_4_13
