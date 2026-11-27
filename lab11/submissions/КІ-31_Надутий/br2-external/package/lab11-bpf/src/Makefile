@@ -17,7 +17,7 @@ LAB_CFLAGS = -Wall -Wextra
 
 # TODO 8: додайте сюди verifier/fixed_null.bpf.o
 BPF_OBJS = opencount.bpf.o \
-	verifier/bad_null.bpf.o verifier/bad_loop.bpf.o verifier/bad_userptr.bpf.o
+	verifier/fixed_null.bpf.o verifier/bad_null.bpf.o verifier/bad_loop.bpf.o verifier/bad_userptr.bpf.o
 
 all: opencount openbench $(BPF_OBJS)
 
