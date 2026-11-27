@@ -244,3 +244,30 @@ O означає out-of-tree module, його біт — 2^12.
 Tainted=4224 означає O (4096, зовнішній модуль) і D (128, ядро пережило Oops). У mode=2 tainted=4096: зовнішній модуль завантажено, але Oops не відбулося.
 
 У mode=2 процес insmod нескінченно виконував код ядра і залишився у стані R після kill -9. Сигнал SIGKILL не може перервати такий цикл, доки виконання не повернеться до місця обробки сигналів. rmmod не зміг вивантажити модуль, ініціалізація якого не завершилася.
+
+## Частина 4. eBPF: TODO 5–7
+
+Реалізовано атомарний підрахунок openat у BPF hash map, передавання подій через ringbuf та читання лічильників у просторі користувача.
+
+Збирання: make lab11-bpf-rebuild all, BUILD_RC=0.
+Перевірка: opencount -c, verifier accepted all programs, CHECK_RC=0.
+
+Тест 1000 операцій: openbench=1004, sleep=5, total=1009 у 2 процесах. Час openbench=991.3 ns.
+
+Тест verbose: PID openbench=141, відкрито /etc/ld.so.cache, два шляхи glibc-hwcaps, /lib64/libc.so.6 і двічі /etc/hostname. Лічильники: openbench=6, sleep=5, total=11. Час openbench=33607.5 ns.
+
+bpftool: програма on_openat типу tracepoint, xlated=1440 B, JIT=935 B. Мапи counts (hash, 1024 записи), config (array, 1 запис), events (ringbuf, 65536 B). У дампі інструкцій видно bpf_get_current_comm і lookup у counts. У дампі мапи отримано записи для head, crond, bpftool і sh.
+
+### Відповідь №6
+
+Програма opencount.bpf.c компілюється clang у байт-код eBPF. Завантажувач opencount через libbpf передає програму ядру, де верифікатор перевіряє безпечність доступів до памʼяті й допустимість виконання. Після прийняття програма приєднується до tracepoint syscalls/sys_enter_openat. JIT перетворює eBPF-інструкції на машинний код. Перевірка opencount -c успішна, CHECK_RC=0. bpftool показав xlated=1440 B і jited=935 B.
+
+Мапа counts зберігає кількість openat за назвою процесу. Існуюче значення збільшується атомарно; нове створюється з BPF_NOEXIST. Якщо інший процесор уже створив запис, програма повторює пошук і збільшує його. Фактичний результат для 1000 операцій: openbench=1004, total=1009.
+
+### Відповідь №7
+
+Для передавання подій у простір користувача використано BPF_MAP_TYPE_RINGBUF. Програма читає налаштування з мапи config, перевіряє verbose і збіг назви процесу з target. Потім резервує місце через bpf_ringbuf_reserve, записує PID, comm і шлях та передає подію через bpf_ringbuf_submit.
+
+Адреса filename належить памʼяті процесу. Безпосереднє розіменування такого вказівника заборонене верифікатором, тому використано bpf_probe_read_user_str. Якщо ringbuf заповнений, подію пропускаємо, але лічильник у counts зберігається.
+
+У реальному тесті verbose отримано шість подій процесу openbench, серед них два відкриття /etc/hostname. Через bpftool підтверджено існування мап counts, config та events і роботу програми on_openat.

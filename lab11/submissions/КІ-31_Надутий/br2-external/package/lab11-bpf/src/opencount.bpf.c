@@ -72,6 +72,16 @@ int on_openat(struct openat_ctx *ctx)
 
 	bpf_get_current_comm(key.comm, sizeof(key.comm));
 
+        cnt = bpf_map_lookup_elem(&counts, &key);
+        if (cnt) {
+                __sync_fetch_and_add(cnt, 1);
+        } else if (bpf_map_update_elem(&counts, &key, &one, BPF_NOEXIST)) {
+                cnt = bpf_map_lookup_elem(&counts, &key);
+                if (cnt)
+                        __sync_fetch_and_add(cnt, 1);
+        }
+
+
 	/*
 	 * TODO 5. Лічильник у мапі counts для ключа key.
 	 * bpf_map_lookup_elem повертає вказівник на значення або NULL.
@@ -96,7 +106,22 @@ int on_openat(struct openat_ctx *ctx)
 	 * verifier/bad_userptr.bpf.c і функцію-помічника для рядків
 	 * користувача в man 7 bpf-helpers.
 	 */
-	(void)cnt; (void)one; (void)cfg; (void)e; (void)zero;
+
+        cfg = bpf_map_lookup_elem(&config, &zero);
+        if (!cfg || !cfg->verbose || !comm_eq(key.comm, cfg->target))
+                return 0;
+
+        e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+        if (!e)
+                return 0;
+
+        e->pid = bpf_get_current_pid_tgid() >> 32;
+        __builtin_memcpy(e->comm, key.comm, sizeof(e->comm));
+        bpf_probe_read_user_str(e->path, sizeof(e->path),
+                                (const void *)ctx->filename);
+        bpf_ringbuf_submit(e, 0);
+
+(void)cnt; (void)one; (void)cfg; (void)e; (void)zero;
 	return 0;
 }
 

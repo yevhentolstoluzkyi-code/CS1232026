@@ -95,7 +95,35 @@ static int print_top(int map_fd, int top)
 	 * Значення ключа — bpf_map_lookup_elem(fd, &k, &value), тип __u64.
 	 * Не більше MAX_ROWS рядків.
 	 */
-	(void)map_fd;
+
+    struct comm_key prev, next;
+    struct comm_key *current = NULL;
+    __u64 value;
+
+    while (1) {
+        if (bpf_map_get_next_key(map_fd, current, &next) != 0) {
+            if (errno == ENOENT)
+                break;
+            perror("bpf_map_get_next_key");
+            return -1;
+        }
+
+        if (bpf_map_lookup_elem(map_fd, &next, &value) != 0) {
+            perror("bpf_map_lookup_elem");
+            return -1;
+        }
+
+        if (n < MAX_ROWS) {
+            memcpy(rows[n].comm, next.comm, COMM_LEN);
+            rows[n].count = value;
+            sum += value;
+            n++;
+        }
+
+        prev = next;
+        current = &prev;
+    }
+
 
 	qsort(rows, n, sizeof(rows[0]), by_count_desc);
 	printf("%-16s %10s\n", "COMM", "OPENAT");
