@@ -32,16 +32,17 @@
 #define PATH_LEN 128
 
 /*
- * TODO 2. Зробіть ці дві змінні параметрами модуля:
- *   target  — рядок (ім'я процесу), задається лише під час завантаження,
- *             у /sys/module/lab11_opencount/parameters/ лише для читання;
- *             параметр-рядок у власний буфер — module_param_string();
- *   verbose — bool, який root може змінювати під час роботи модуля
- *             (права 0644).
- * Кожен параметр опишіть MODULE_PARM_DESC: опис покаже modinfo.
+ * TODO 2: параметри модуля.
+ * target задається лише при завантаженні;
+ * verbose можна змінювати від root під час роботи.
  */
 static char target[TASK_COMM_LEN];
+module_param_string(target, target, sizeof(target), 0444);
+MODULE_PARM_DESC(target, "Process comm to count (read-only)");
+
 static bool verbose;
+module_param(verbose, bool, 0644);
+MODULE_PARM_DESC(verbose, "Log matching openat paths when enabled");
 
 static atomic64_t total = ATOMIC64_INIT(0);
 static atomic64_t matched = ATOMIC64_INIT(0);
@@ -61,24 +62,50 @@ static struct proc_dir_entry *proc_entry;
  */
 static void probe_sys_enter(void *data, struct pt_regs *regs, long id)
 {
-	/*
-	 * TODO 3. Пробник.
-	 *  1. Нас цікавить лише openat(): порівняйте id з __NR_openat.
-	 *  2. Збільште total (atomic64_inc: пробник працює на всіх процесорах
-	 *     одночасно).
-	 *  3. Якщо target порожній — усе. Інакше візьміть ім'я поточного
-	 *     процесу (get_task_comm(comm, current)) і порівняйте з target
-	 *     (strncmp, TASK_COMM_LEN). Не збіглося — усе.
-	 *  4. Збільште matched і запишіть номер у pr_debug:
-	 *       "%s[%d] openat #%lld\n" (ім'я, task_pid_nr(current), номер).
-	 *  5. Якщо verbose (READ_ONCE(verbose)) — дістаньте ім'я файла:
-	 *     syscall_get_arguments(current, regs, args) дає аргументи виклику,
-	 *     ім'я файла — args[1], і це адреса в пам'яті ПРОЦЕСУ. Скопіюйте
-	 *     рядок у path через strncpy_from_user (не більше PATH_LEN байтів;
-	 *     пам'ятайте про помилку й про рядок без нуля в кінці) і запишіть
-	 *     у журнал pr_info_ratelimited:
-	 *       "%s[%d] openat %s\n" (ім'я, pid, path).
-	 */
+        char comm[TASK_COMM_LEN];
+        char path[PATH_LEN];
+        unsigned long args[6];
+        long copied;
+        long long number;
+
+        /* TODO 3.1: рахуємо лише openat(). */
+        if (id != __NR_openat)
+                return;
+
+        atomic64_inc(&total);
+
+        /* Без заданого target збіги не підраховуємо. */
+        if (!target[0])
+                return;
+
+        get_task_comm(comm, current);
+        if (strncmp(comm, target, TASK_COMM_LEN) != 0)
+                return;
+
+        /* TODO 3.2: атомарний лічильник збігів. */
+        number = atomic64_inc_return(&matched);
+
+        pr_debug("%s[%d] openat #%lld\n",
+                 comm, task_pid_nr(current), number);
+
+        /* TODO 3.3: шлях виводимо лише у verbose-режимі. */
+        if (!READ_ONCE(verbose))
+                return;
+
+        syscall_get_arguments(current, regs, args);
+
+        copied = strncpy_from_user(
+                path, (const char __user *)args[1], PATH_LEN
+        );
+
+        if (copied < 0) {
+                strscpy(path, "<fault>", sizeof(path));
+        } else if (copied >= PATH_LEN) {
+                path[PATH_LEN - 1] = '\0';
+        }
+
+        pr_info_ratelimited("%s[%d] openat %s\n",
+                            comm, task_pid_nr(current), path);
 }
 
 static int opencount_show(struct seq_file *m, void *v)
@@ -100,39 +127,40 @@ static void find_sys_enter(struct tracepoint *tp, void *priv)
 
 static int __init opencount_init(void)
 {
-	for_each_kernel_tracepoint(find_sys_enter, &tp_sys_enter);
-	if (!tp_sys_enter) {
-		pr_err("no sys_enter tracepoint: is CONFIG_FTRACE_SYSCALLS set?\n");
-		return -ENOENT;
-	}
+        int ret;
 
-	proc_entry = proc_create_single("lab11_opencount", 0444, NULL, opencount_show);
-	if (!proc_entry)
-		return -ENOMEM;
+        for_each_kernel_tracepoint(find_sys_enter, &tp_sys_enter);
+        if (!tp_sys_enter) {
+                pr_err("no sys_enter tracepoint: is CONFIG_FTRACE_SYSCALLS set?\n");
+                return -ENOENT;
+        }
 
-	/*
-	 * TODO 4a. Зареєструйте probe_sys_enter на tp_sys_enter
-	 * (tracepoint_probe_register, data = NULL). Якщо реєстрація не
-	 * вдалася — запишіть помилку в журнал, приберіть уже створений
-	 * /proc/lab11_opencount і поверніть код помилки: модуль, що не
-	 * завантажився, не має лишати по собі нічого.
-	 */
+        proc_entry = proc_create_single("lab11_opencount", 0444, NULL,
+                                        opencount_show);
+        if (!proc_entry)
+                return -ENOMEM;
 
-	pr_info("watching openat(), target=%s verbose=%d\n",
-		target[0] ? target : "-", verbose);
-	return 0;
+        ret = tracepoint_probe_register(tp_sys_enter, probe_sys_enter, NULL);
+        if (ret) {
+                pr_err("failed to register sys_enter probe: %d\n", ret);
+                proc_remove(proc_entry);
+                return ret;
+        }
+
+        pr_info("watching openat(), target=%s verbose=%d\n",
+                target[0] ? target : "-", verbose);
+        return 0;
 }
 
 static void __exit opencount_exit(void)
 {
-	/*
-	 * TODO 4b. Зніміть пробник (tracepoint_probe_unregister) і, перш
-	 * ніж ядро звільнить код модуля, дочекайтеся, поки пробник, що саме
-	 * виконується на іншому процесорі, завершиться
-	 * (tracepoint_synchronize_unregister). Потім приберіть /proc-файл.
-	 */
-	pr_info("unloaded: total=%lld matched=%lld\n",
-		(long long)atomic64_read(&total), (long long)atomic64_read(&matched));
+        tracepoint_probe_unregister(tp_sys_enter, probe_sys_enter, NULL);
+        tracepoint_synchronize_unregister();
+        proc_remove(proc_entry);
+
+        pr_info("unloaded: total=%lld matched=%lld\n",
+                (long long)atomic64_read(&total),
+                (long long)atomic64_read(&matched));
 }
 
 module_init(opencount_init);

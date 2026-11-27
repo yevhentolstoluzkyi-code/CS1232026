@@ -146,3 +146,79 @@ Kprobe дозволяє спостерігати за виконанням де�
 Після правильного ввімкнення трасування символ
 `for_each_kernel_tracepoint` з'явився у `Module.symvers`
 як `EXPORT_SYMBOL_GPL`.
+
+## Частина 2. Модуль ядра lab11_opencount
+
+### Реалізація та перевірка
+
+TODO 2–4 виконано: параметри target (0444) і verbose (0644),
+атомарні лічильники, tracepoint sys_enter для openat,
+безпечне копіювання шляху, реєстрація й зняття пробника.
+
+Збирання: `make lab11-opencount-rebuild all` — код 0.
+Середовище: QEMU/KVM, Linux 6.18.7-lab11.
+
+`modinfo`:
+- license: GPL
+- vermagic: 6.18.7-lab11 SMP preempt mod_unload
+- target: Process comm to count (read-only), string
+- verbose: Log matching openat paths when enabled, bool
+
+`modprobe lab11_opencount target=openbench` — успішно.
+`openbench -n 1000 -r 1` — 898.6 ns.
+
+`/proc/lab11_opencount` після тесту:
+- target: openbench
+- verbose: 0
+- total: 1040
+- matched: 1004
+
+При verbose=1 журнал показав відкриття:
+`/etc/ld.so.cache`, `/lib64/libc.so.6`, `/etc/hostname`,
+а також спроби в каталогах `glibc-hwcaps`.
+
+Після ввімкнення dynamic debug отримано повідомлення:
+`openbench[146] openat #1012`, `#1013`, `#1014`.
+
+Запис у `/sys/module/lab11_opencount/parameters/target`
+повернув `Permission denied`; target залишився openbench.
+
+Перед вивантаженням: total=1089, matched=1017.
+`rmmod lab11_opencount` — код 0.
+Повідомлення: `unloaded: total=1108 matched=1017`.
+Після rmmod файл `/proc/lab11_opencount` відсутній.
+`kernel/tainted` до та після rmmod: 4096.
+
+### Питання для звіту №3
+
+Після 1000 операцій open+close модуль нарахував 1004
+виклики openat процесу openbench. Додаткові чотири
+виклики пов'язані із запуском динамічно скомпонованої
+програми: відкриттям кешу завантажувача та бібліотек.
+У verbose видно `/etc/ld.so.cache` і `libc.so.6`.
+Загальний total=1040 також враховує інші процеси.
+
+Значення taint модуля — O, загальне tainted — 4096.
+O означає out-of-tree module, його біт — 2^12.
+Ліцензія GPL не скасовує ознаки зовнішнього модуля.
+Після rmmod цей прапорець залишається.
+
+Запис у target повернув Permission denied, оскільки
+в коді `module_param_string(..., 0444)` — лише читання.
+
+### Питання для звіту №4
+
+`tracepoint_probe_unregister` від'єднує пробник,
+але обробник на іншому процесорі ще може виконуватися.
+`tracepoint_synchronize_unregister` чекає його завершення,
+щоб не допустити виконання вже вивантаженого коду.
+
+Звичайний тест рідко виявляє відсутність синхронізації,
+бо гонка потребує збігу виконання пробника з rmmod.
+
+`READ_ONCE(verbose)` запобігає небажаній оптимізації
+читання прапорця, який змінюється через sysfs.
+
+`pr_info_ratelimited` обмежує частоту повідомлень,
+щоб часті openat не переповнювали журнал ядра й не
+створювали надмірне навантаження.
