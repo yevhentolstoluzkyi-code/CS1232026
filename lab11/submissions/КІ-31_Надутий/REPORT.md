@@ -222,3 +222,25 @@ O означає out-of-tree module, його біт — 2^12.
 `pr_info_ratelimited` обмежує частоту повідомлень,
 щоб часті openat не переповнювали журнал ядра й не
 створювали надмірне навантаження.
+
+## Частина 3. Дослідження lab11_oops
+
+Досліди виконано у QEMU/KVM з -snapshot. Код lab11_oops не змінювався.
+
+### mode=1
+
+До досліду tainted=0. Отримано BUG: kernel NULL pointer dereference, address 0x0. RIP: lab11_oops_init+0x3a/0xff0. CR2=0x0. У стеку: do_one_initcall, do_init_module, load_module, init_module_from_file, __x64_sys_finit_module, do_syscall_64. Процес insmod (PID 137) завершився Killed, rc=137. Після Oops tainted=4224. lsmod: lab11_oops, Used by=1. rmmod: Device or resource busy, rc=1. Повторний insmod спричинив другий Oops у __x64_sys_finit_module+0x112/0x3c0, rc=137.
+
+### mode=2
+
+Після нового запуску QEMU tainted=0. Повідомлення: mode=2: spinning forever, try kill -9. insmod PID 136 залишився після kill -9; State: R (running). loadavg: 0.24 0.05 0.02. rmmod: Device or resource busy. Після досліду tainted=4096.
+
+### Відповідь на питання №5
+
+У mode=1 модуль записав дані за NULL-адресою, що викликало помилку сторінки в режимі ядра. RIP вказав на lab11_oops_init+0x3a/0xff0; CR2=0 підтвердив адресу помилки. Стек показав шлях від системного виклику finit_module через load_module і do_init_module до ініціалізації модуля. insmod був примусово завершений (Killed, rc=137), але система продовжила працювати. Це Oops, а не загальна паніка ядра.
+
+Після Oops модуль залишився в незавершеному стані: rmmod повернув Device or resource busy. Повторне завантаження спричинило другий Oops, тому після пошкодження стану ядра потрібен перезапуск QEMU.
+
+Tainted=4224 означає O (4096, зовнішній модуль) і D (128, ядро пережило Oops). У mode=2 tainted=4096: зовнішній модуль завантажено, але Oops не відбулося.
+
+У mode=2 процес insmod нескінченно виконував код ядра і залишився у стані R після kill -9. Сигнал SIGKILL не може перервати такий цикл, доки виконання не повернеться до місця обробки сигналів. rmmod не зміг вивантажити модуль, ініціалізація якого не завершилася.
